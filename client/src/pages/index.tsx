@@ -136,7 +136,7 @@ export default function Home() {
         </div>
       </CardHeader>
       <CardContent>
-        {article.multimedia?.length > 0 && (
+        {/* {article.multimedia?.length > 0 && (
           <div className="mb-4 relative w-full h-64">
             <Image
               src={`https://www.nytimes.com/${article.multimedia[0].url}`}
@@ -145,7 +145,7 @@ export default function Home() {
               className="object-cover rounded-lg"
             />
           </div>
-        )}
+        )} */}
         <p className="text-gray-700 mb-4">{article.abstract}</p>
         <Button
           variant="outline"
@@ -255,8 +255,8 @@ export default function Home() {
 async function fetchNYTArticleByUrl(articleUrl: string) {
   const params = new URLSearchParams({
     'api-key': API_KEY,
-    'url': articleUrl,
-    'page-size': "1"
+    'fq': `web_url:"${articleUrl}"`,  // 完全一致検索を使用
+    'fl': 'headline,abstract,web_url,pub_date,byline,multimedia'  // 必要なフィールドのみ取得
   });
 
   const endpoint = `${API_BASE}/search/v2/articlesearch.json?${params.toString()}`;
@@ -266,17 +266,17 @@ async function fetchNYTArticleByUrl(articleUrl: string) {
     if (!response.ok) throw new Error('Network response was not ok');
     const data = await response.json();
     
-    // 通常、完全に一致する記事が1つだけ返されます
-    if (data.response.docs.length > 0) {
-      return data.response.docs[0];
-    }
-    return null;
+    // 完全一致する記事のみを返す
+    const exactMatch = data.response.docs.find(
+      (doc: NYTArticle) => doc.web_url === articleUrl
+    );
+    
+    return exactMatch || null;
   } catch (error) {
     console.error('Article fetch error:', error);
     throw error;
   }
 }
-
 // 記事IDから記事を取得する関数
 // Note: この機能はTimesNewswire APIで利用可能です
 async function fetchNYTArticleById(articleId: string) {
