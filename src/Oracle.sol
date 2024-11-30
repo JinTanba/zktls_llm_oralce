@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.4;
  
-import "@reclaimprotocol/verifier-soligit statudity-sdk/contracts/Reclaim.sol";
+import "@reclaimprotocol/verifier-solidity-sdk/contracts/Reclaim.sol";
 import "@reclaimprotocol/verifier-solidity-sdk/contracts/Addresses.sol";
+import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
 
 interface IPlopNFT is IERC721 {
     function mint(address to) external returns (uint256);

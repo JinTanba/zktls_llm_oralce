@@ -1,8 +1,11 @@
 [profile.default]
 src = "src"
 out = "out"
-libs = ["lib"]
+libs = ["lib", "node_modules"]
 remappings = [
-    "@openzeppelin/contracts=lib/openzeppelin-contracts/contracts"
+    "@openzeppelin/contracts=lib/openzeppelin-contracts/contracts",
+    "@reclaimprotocol/verifier-solidity-sdk/contracts/=node_modules/@reclaimprotocol/verifier-solidity-sdk/contracts/",
+    "@chainlink/contracts/src/"
+
 ]
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+allow_paths = ["node_modules"]

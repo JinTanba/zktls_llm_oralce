@@ -1,0 +1,20 @@
+{
+  "name": "zktls_llm_oralce",
+  "version": "1.0.0",
+  "description": "**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@chainlink/contracts": "^1.3.0",
+    "@extractus/article-extractor": "^8.0.16",
+    "@reclaimprotocol/verifier-solidity-sdk": "^1.0.4"
+  }
+}
