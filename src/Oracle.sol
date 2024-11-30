@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity ^0.8.20;
  
 import "@reclaimprotocol/verifier-soligit statudity-sdk/contracts/Reclaim.sol";
 import "@reclaimprotocol/verifier-solidity-sdk/contracts/Addresses.sol";
