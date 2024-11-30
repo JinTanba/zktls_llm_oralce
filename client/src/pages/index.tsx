@@ -107,7 +107,7 @@ export default function Home() {
     setArticles([]);
     
     try {
-      const result = await fetchNYTArticleById(articleId);
+      const result = await fetchNYTArticles(articleId);
       if (result) {
         setSpecificArticle(result);
       } else {
