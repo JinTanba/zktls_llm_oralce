@@ -1,4 +1,3 @@
-//@ts-nocheck
 
 import Image from "next/image";
 import { Inter } from "next/font/google";
@@ -256,7 +255,7 @@ async function fetchNYTArticleByUrl(articleUrl: string) {
   const params = new URLSearchParams({
     'api-key': API_KEY,
     'fq': `web_url:"${articleUrl}"`,  // 完全一致検索を使用
-    'fl': 'headline,abstract,web_url,pub_date,byline,multimedia'  // 必要なフィールドのみ取得
+    'fl': 'headline,abstract,web_url,pub_date,byline,multimedia,lead_paragraph,snippet,source'  // 必要なフィールドのみ取得
   });
 
   const endpoint = `${API_BASE}/search/v2/articlesearch.json?${params.toString()}`;
@@ -279,16 +278,40 @@ async function fetchNYTArticleByUrl(articleUrl: string) {
 }
 // 記事IDから記事を取得する関数
 // Note: この機能はTimesNewswire APIで利用可能です
-async function fetchNYTArticleById(articleId: string) {
-  const endpoint = `${API_BASE}/news/v3/content/${articleId}.json?api-key=${API_KEY}`;
-
+async function fetchFullNYTArticle(
+  articleUrl: string
+): Promise<NYTArticle | null> {
   try {
+    // URLから記事の部分を抽出（/year/month/day/section/title.html の形式）
+    const nytPath = articleUrl.replace('https://www.nytimes.com', '');
+    
+    // 検索パラメータの設定
+    const params = new URLSearchParams({
+      'api-key': API_KEY,
+      'q': nytPath,  // URLのパス部分で検索
+      'sort': 'relevance'
+    });
+
+    const endpoint = `${API_BASE}/search/v2/articlesearch.json?${params.toString()}`;
+    console.log('Search endpoint:', endpoint);
+    console.log('Searching for path:', nytPath);
+
     const response = await fetch(endpoint);
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
     const data = await response.json();
-    return data.results[0];
+    console.log('Search results:', data.response?.docs?.length || 0);
+
+    if (!data.response || !data.response.docs || data.response.docs.length === 0) {
+      return null;
+    }
+
+    return data.response.docs[0];
+
   } catch (error) {
-    console.error('Article fetch error:', error);
+    console.error('Error fetching NYT article:', error);
     throw error;
   }
 }
