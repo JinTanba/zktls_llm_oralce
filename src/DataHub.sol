@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity ^0.8.4;
 
 import "@reclaimprotocol/verifier-solidity-sdk/contracts/Reclaim.sol";
 import "@reclaimprotocol/verifier-solidity-sdk/contracts/Addresses.sol";
@@ -203,14 +203,15 @@ library Utils {
 
 contract DataHub {
 
-    constructor() {
-        reclaimAddress = Addresses.BASE_SEPOLIA;
-    }
+    event ProviderCreated(uint256 indexed id, string providerHash);
+    event ArticleCreated(uint256 indexed id, string content, address creator);
+    event PropositionCreated(uint256 indexed id, string proposition);
+
     
     function verifyProof(Reclaim.Proof memory proof, uint256 providerId) external {
         Schema.Ids storage ids = Storage.ids();
         Schema.Provider storage provider = Storage.provider(providerId);
-        Reclaim(reclaimAddress).verifyProof(proof);
+        Reclaim(Addresses.BASE_SEPOLIA).verifyProof(proof);
         string memory providerHashInStr = Utils.getFromExtractedParams(proof.claimInfo.context, "providerHash");
         require(provider.providerHash == keccak256(bytes(providerHashInStr)), "wrong data provider");
 
@@ -254,15 +255,15 @@ contract DataHub {
        return newPropositionId;
    }
 
-   function getProvider(uint256 providerId) external view returns (Schema.Provider memory) {
+   function getProvider(uint256 providerId) external pure returns (Schema.Provider memory) {
        return Storage.provider(providerId);
    }
 
-   function getArticle(uint256 articleId) external view returns (Schema.Article memory) {
+   function getArticle(uint256 articleId) external pure returns (Schema.Article memory) {
        return Storage.article(articleId);
    }
 
-   function getProposition(uint256 propositionId) external view returns (Schema.Proposition memory) {
+   function getProposition(uint256 propositionId) external pure returns (Schema.Proposition memory) {
        return Storage.proposition(propositionId);
    }
 

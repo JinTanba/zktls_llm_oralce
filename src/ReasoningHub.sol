@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity ^0.8.4;
 
 import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
@@ -36,8 +36,8 @@ interface IDataHub {
         uint256 providerId;
     }
 
-    function getProposition(uint256) external returns(string);
-    function getArticles(uint256[] memory) external returns(string[]);
+    function getProposition(uint256) external view returns(string memory);
+    function getArticles(uint256[] memory) external view returns(string[] memory);
 }
 
 contract ReasoningHub is FunctionsClient, ConfirmedOwner {
@@ -81,13 +81,12 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
     ) external returns(bytes32) {
         Types.Config storage config = Storage._config();
         uint256 oldBalance = getSubscriptionBalance();
-        bytes memory proposion = IDataHub(dataHub).getProposition(proposionId);
-        bytes memory articles = abi.encode(IDataHub(dataHub).getArticles(articleIds));
+        Types.FunctionArgs memory functionArgs = createFunctionArgs(proposionId, articleIds, config);
         FunctionsRequest.Request memory req;
         req.initializeRequestForInlineJavaScript(config.code);
         req.addSecretsReference(encryptedSecretsUrls);
-        req.setArgs([config.prompt, proposion]); // args[0]: prompt, args[1]: proposion
-        req.setBytesArgs([articles]);
+        req.setArgs(functionArgs.args); // args[0]: prompt, args[1]: proposion
+        req.setBytesArgs(functionArgs.bytesArgs);
         
         bytes32 requestId = _sendRequest(
             req.encodeCBOR(),
@@ -97,7 +96,6 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         );
         
         Storage._stack(requestId).clientAddress = msg.sender;
-        Storage._stack(requestId).actionId = actionId;
         Storage._stack(requestId).sender = linkOwner;
         Storage._stack(requestId).oldBalance = oldBalance;
         
@@ -115,11 +113,20 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         uint256 newBalance = getSubscriptionBalance();
         uint256 usedLink = _promise.oldBalance - newBalance;
         //callback-----
-        IReasoning(_promise.clientAddress).reasoningCallback(requestId, response, _promise.sender);
+        // IReasoning(_promise.clientAddress).reasoningCallback(requestId, response, _promise.sender); TODO how to get result
         //-------------
         refund(payedLink - usedLink, _promise.sender);
-        emit OnchainReasoning(_promise.actionId, response, _promise.clientAddress, _promise.sender);
+        // emit OnchainReasoning(_promise.actionId, response, _promise.clientAddress, _promise.sender);
         emit Response(requestId, response, err);
+    }
+
+    function createFunctionArgs(uint256 proposionId, uint256[] memory articleIds, Types.Config storage config) internal view returns(Types.FunctionArgs memory functionArgs) {
+        string memory proposion = IDataHub(config.dataHub).getProposition(proposionId);
+        bytes memory articles = abi.encode(IDataHub(config.dataHub).getArticles(articleIds));
+        string memory prompt = config.prompt;
+        functionArgs.args[0] = prompt;
+        functionArgs.args[1] = proposion;
+        functionArgs.bytesArgs[0] = articles;
     }
 
     // LINK token management functions

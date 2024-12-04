@@ -1,3 +1,17 @@
 {
-    "solidity.compileUsingRemoteVersion": "v0.8.4+commit.c7e474f2"
+    "solidity.compileUsingRemoteVersion": "v0.8.4+commit.c7e474f2",
+    "wake.compiler.solc.remappings": [
+        "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+        "@reclaimprotocol/verifier-solidity-sdk/contracts/=node_modules/@reclaimprotocol/verifier-solidity-sdk/contracts/",
+        "@chainlink/contracts/=node_modules/@chainlink/contracts/",
+        "@arbitrum/=node_modules/@arbitrum/",
+        "@eth-optimism/=node_modules/@eth-optimism/",
+        "@offchainlabs/=node_modules/@offchainlabs/",
+        "@scroll-tech/=node_modules/@scroll-tech/",
+        "@zksync/=node_modules/@zksync/",
+        "ds-test/=lib/openzeppelin-contracts/lib/forge-std/lib/ds-test/src/",
+        "forge-std/=lib/forge-std/src/",
+        "hardhat/=node_modules/hardhat/",
+        "openzeppelin-contracts/=lib/openzeppelin-contracts/"
+    ]
 }
