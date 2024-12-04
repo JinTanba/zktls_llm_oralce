@@ -1,23 +1,83 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
- 
+
 import "@reclaimprotocol/verifier-solidity-sdk/contracts/Reclaim.sol";
 import "@reclaimprotocol/verifier-solidity-sdk/contracts/Addresses.sol";
-import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
-import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
+library Schema {
 
-interface IPlopNFT is IERC721 {
-    function mint(address to) external returns (uint256);
-    function minter() external view returns (address);
-    function setMinter(address _newMinter) external;
-    function tokenURI(uint256 tokenId) external view returns (string memory);
-    
-    event MinterChanged(address indexed previousMinter, address indexed newMinter);
-    event NFTMinted(address indexed to, uint256 indexed tokenId);
+    struct Ids {
+        uint256 articleId;
+        uint256 propositionId;
+        uint256 providerId;
+        uint256 actionId;
+    }
+
+    struct Config {
+        address router;
+        bytes32 donID;
+        address link;
+        uint32 gasLimit;
+        uint64 subscriptionId;
+    }
+
+    struct Article {
+        string content;
+        address createdBy;
+        uint256 createdAt;
+        uint256 providerId;
+    }
+
+    struct Proposition {
+        string proposition;
+        uint256[] permittedProviderIds;
+    }
+
+    struct Provider{
+         string[] keys;
+         bytes32 providerHash;
+    }
+
+}
+
+library Storage {
+    uint256 constant IDS_SLOT = 1;
+    uint256 constant ARTICLE_SLOT = 2;
+    uint256 constant PROPOSITION_SLOT = 3;
+    uint256 constant PROVIDER_SLOT = 4;
+
+    function article(uint256 id) internal pure returns(Schema.Article storage s) {
+        assembly {
+            mstore(0, ARTICLE_SLOT)
+            mstore(32, id)
+            s.slot := keccak256(0, 64)
+        }
+    }
+
+    function proposition(uint256 id) internal pure returns(Schema.Proposition storage s) {
+        assembly {
+            mstore(0, PROPOSITION_SLOT)
+            mstore(32, id)
+            s.slot := keccak256(0, 64)
+        }
+    }
+
+    function provider(uint256 id) internal pure returns(Schema.Provider storage s) {
+        assembly {
+            mstore(0, PROVIDER_SLOT)
+            mstore(32, id)
+            s.slot := keccak256(0, 64)
+        }
+    }
+
+    function ids() internal pure returns(Schema.Ids storage s) {
+        assembly {
+            mstore(0, IDS_SLOT)
+            s.slot := keccak256(0, 32)
+        }
+    }
 }
 
 library Utils {
@@ -141,238 +201,78 @@ library Utils {
     }
 }
 
-contract Attestor {
-    address public reclaimAddress;
-    uint256 public dropCount;
-    uint256 public questCount;
-    address public immutable owner;
-
-    enum QuestType {
-        IS_INCLUDED_IN_LIST,
-        LESS,
-        MORE,
-        EQUAL,
-        PASS
-    }
-
-    struct Drop {
-        address rewardTokenAddress;
-        uint256 rewardAmount;
-        uint256[] questList;
-        uint256 deposit;
-        address creator;
-        bool isNFT;
-    }
-
-    struct Quest {
-        string[] targetKeys;
-        string[] expectedValues;
-        QuestType[] questTypes;
-        string providerHash;
-    }
-
-    mapping(uint256 => Drop) public drops;
-    mapping(uint256 => Quest) public quests;
-    mapping(address => mapping(uint256 => bool)) public complited;
-    mapping(uint256 => address) public claimDrop;
-
-    event DropCreated(
-        uint256 dropId,
-        address rewardTokenAddress,
-        uint256 rewardAmount,
-        uint256[] questList,
-        address creator
-    );
-
-    event QuestCreated(
-        uint256 questId,
-        uint256 dropId,
-        string[] targetKeys,
-        string[] expectedValues,
-        QuestType[] questTypes,
-        string providerHash
-    );
+contract DataHub {
 
     constructor() {
         reclaimAddress = Addresses.BASE_SEPOLIA;
-        owner = msg.sender;
     }
-
-    function createDrop(
-        address rewardTokenAddress,
-        uint256 rewardAmount,
-        address creator,
-        bool isNFT
-    ) external returns (uint256) {
-        dropCount += 1;
-        Drop storage drop = drops[dropCount];
-        drop.rewardTokenAddress = rewardTokenAddress;
-        drop.rewardAmount = rewardAmount;
-        drop.creator = creator;
-        drop.isNFT = isNFT;
-        emit DropCreated(
-            dropCount,
-            rewardTokenAddress,
-            rewardAmount,
-            new uint256[](0),
-            creator
-        );
-        return dropCount;
-    }
-
-    function createQuest(
-        uint256 dropId,
-        string[] memory targetKeys,
-        string[] memory expectedValues,
-        QuestType[] memory questTypes,
-        string memory providerHash
-    ) external returns (uint256) {
-        require(targetKeys.length == expectedValues.length && expectedValues.length == questTypes.length, "Arrays length mismatch");
-        require(targetKeys.length > 0, "Empty arrays not allowed");
-
-        questCount += 1;
-        Quest storage quest = quests[questCount];
-        
-        quest.targetKeys = targetKeys;
-        quest.expectedValues = expectedValues;
-        quest.questTypes = questTypes;
-        quest.providerHash = providerHash;
-
-        Drop storage drop = drops[dropId];
-        drop.questList.push(questCount);
-
-        emit QuestCreated(
-            questCount,
-            dropId,
-            targetKeys,
-            expectedValues,
-            questTypes,
-            providerHash
-        );
-        return questCount;
-    }
-
-    function verifyProof(Reclaim.Proof memory proof, uint256 questId, uint256 dropId) external {
-        require(msg.sender == owner, "only owner can verify proof");
-        address sender = getSender(proof.claimInfo.context);
-        
+    
+    function verifyProof(Reclaim.Proof memory proof, uint256 providerId) external {
+        Schema.Ids storage ids = Storage.ids();
+        Schema.Provider storage provider = Storage.provider(providerId);
         Reclaim(reclaimAddress).verifyProof(proof);
-        Quest storage quest = quests[questId];
-        
-        require(!complited[sender][questId], "you have already complited");
+        string memory providerHashInStr = Utils.getFromExtractedParams(proof.claimInfo.context, "providerHash");
+        require(provider.providerHash == keccak256(bytes(providerHashInStr)), "wrong data provider");
 
-        for(uint256 i = 0; i < quest.targetKeys.length; i++) {
-            if(quest.questTypes[i] == QuestType.IS_INCLUDED_IN_LIST) {
-                isIncludedInList(proof.claimInfo.context, quest.targetKeys[i], quest.expectedValues[i]);
-            } else if(quest.questTypes[i] != QuestType.PASS) {
-                valueComparison(proof.claimInfo.context, quest.targetKeys[i], quest.expectedValues[i], quest.questTypes[i]);
-            }
+        string memory result;
+        for(uint256 i = 0;i < provider.keys.length; i++) {
+            string memory key = provider.keys[i];
+            string memory value = Utils.getFromExtractedParams(proof.claimInfo.context, provider.keys[i]);
+            string memory line = string(abi.encodePacked(key, ": ", value, "\n"));
+            result = string(abi.encodePacked(result, line));
         }
         
-        // require(quest.providerHash == checkProviderHash(proof.claimInfo.context), "provider hash mismatch"); TODO: プロバイダーハッシュのチェックを追加
-
-        complited[sender][questId] = true;
-        
-        if(checkDropComplite(drops[dropId], sender)){
-            claimReward(drops[dropId].creator, dropId, sender);
-        }
+        uint256 newArticleId = ++ids.articleId;
+        Schema.Article storage article = Storage.article(newArticleId);
+        article.content = result;
+        article.createdBy = msg.sender;
+        article.createdAt = block.timestamp;
     }
 
-    function getSender(string memory context) internal pure returns (address) {
-        string memory sender = Utils.extractValue(context, "contextAddress");
-        return Utils.stringToAddress(sender);
-    }
+   function createProvider(string memory providerHash, string[] memory keys) external returns (uint256) {
+       Schema.Ids storage ids = Storage.ids();
+       uint256 newProviderId = ++ids.providerId;
+       
+       Schema.Provider storage provider = Storage.provider(newProviderId);
+       provider.providerHash = keccak256(bytes(providerHash));
+       provider.keys = keys;
 
-    function claimReward(
-        address creator,
-        uint256 dropId,
-        address sender
-    ) internal {
-        Drop memory drop = drops[dropId];
-        if(drop.isNFT){
-            IPlopNFT(drop.rewardTokenAddress).mint(sender);
-        } else {
-            IERC20(drop.rewardTokenAddress).transferFrom(creator, sender, drop.rewardAmount);
-        }
-    }
+       emit ProviderCreated(newProviderId, providerHash);
+       return newProviderId;
+   }
 
-    function recoverSigner(bytes memory signature, uint256 questId, address sender) public pure returns (address) {
-        return ECDSA.recover(keccak256(abi.encodePacked(questId, sender)), signature);
-    }
 
-    function checkDropComplite(Drop memory drop, address sender) internal view returns (bool) {
-        for (uint256 i = 0; i < drop.questList.length; i++) {
-            if(!complited[sender][drop.questList[i]]) {
-                return false;
-            }
-        }
-        return true;
-    }
+   function createProposition(string memory proposition, uint256[] memory providerIds) external returns (uint256) {
+       Schema.Ids storage ids = Storage.ids();
+       uint256 newPropositionId = ++ids.propositionId;
+       
+       Schema.Proposition storage newProposition = Storage.proposition(newPropositionId);
+       newProposition.proposition = proposition;
+       newProposition.permittedProviderIds = providerIds;
 
-    function getDropQuestList(uint256 dropId) external view returns (uint256[] memory) {
-        return drops[dropId].questList;
-    }
+       emit PropositionCreated(newPropositionId, proposition);
+       return newPropositionId;
+   }
 
-    function getDropDetails(uint256 dropId) external view returns (
-        address rewardTokenAddress,
-        uint256 rewardAmount,
-        uint256[] memory questList,
-        uint256 deposit,
-        address creator
-    ) {
-        Drop storage drop = drops[dropId];
-        return (
-            drop.rewardTokenAddress,
-            drop.rewardAmount,
-            drop.questList,
-            drop.deposit,
-            drop.creator
-        );
-    }
+   function getProvider(uint256 providerId) external view returns (Schema.Provider memory) {
+       return Storage.provider(providerId);
+   }
 
-    function getQuestDetails(uint256 questId) external view returns (
-        string[] memory targetKeys,
-        string[] memory expectedValues,
-        QuestType[] memory questTypes,
-        string memory providerHash
-    ) {
-        Quest storage quest = quests[questId];
-        return (
-            quest.targetKeys,
-            quest.expectedValues,
-            quest.questTypes,
-            quest.providerHash
-        );
-    }
+   function getArticle(uint256 articleId) external view returns (Schema.Article memory) {
+       return Storage.article(articleId);
+   }
 
-    function isIncludedInList(
-        string memory context,
-        string memory targetKey,
-        string memory expectedValue
-    ) internal pure {
-        string memory extractedValue = Utils.getFromExtractedParams(context, targetKey);
-        require(
-            keccak256(abi.encodePacked(extractedValue)) == keccak256(abi.encodePacked(expectedValue)),
-            "not match"
-        );
-    }
+   function getProposition(uint256 propositionId) external view returns (Schema.Proposition memory) {
+       return Storage.proposition(propositionId);
+   }
 
-    function valueComparison(
-        string memory context,
-        string memory targetKey,
-        string memory expectedValue,
-        QuestType questType
-    ) internal pure {
-        string memory extractedValue = Utils.getFromExtractedParams(context, targetKey);
-        uint256 uint256ExpectedValue = Utils.stringToUint(expectedValue);
-        uint256 uint256ExtractedValue = Utils.stringToUint(extractedValue);
+   // 既存コードの実装
+   function getArticles(uint256[] memory articleIds) external view returns (string[] memory) {
+       string[] memory articles =  new string[](articleIds.length);
+       for(uint i = 0; i < articleIds.length; i++) {
+           articles[i] = Storage.article(articleIds[i]).content;
+       }
+       return articles;
+   }
 
-        if(questType == QuestType.LESS) {
-            require(uint256ExtractedValue < uint256ExpectedValue, "not less");
-        } else if(questType == QuestType.MORE) {
-            require(uint256ExtractedValue > uint256ExpectedValue, "not more");
-        } else if(questType == QuestType.EQUAL) {
-            require(uint256ExtractedValue == uint256ExpectedValue, "not equal");
-        }
-    }
 }
