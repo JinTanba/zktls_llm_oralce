@@ -5,7 +5,6 @@ libs = ["lib", "node_modules"]
 remappings = [
     "@openzeppelin/contracts=lib/openzeppelin-contracts/contracts",
     "@reclaimprotocol/verifier-solidity-sdk/contracts/=node_modules/@reclaimprotocol/verifier-solidity-sdk/contracts/",
-    "@chainlink/contracts/src/"
-
+    "@chainlink/contracts=node_modules/@chainlink/contracts"
 ]
 allow_paths = ["node_modules"]
