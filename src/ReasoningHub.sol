@@ -8,8 +8,9 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IERC677 {
-  event Transfer(address indexed from, address indexed to, uint256 value, bytes data);
-  function transferAndCall(address to, uint256 amount, bytes memory data) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value, bytes data);
+
+    function transferAndCall(address to, uint256 amount, bytes memory data) external returns (bool);
 }
 
 interface IRouterForGetSubscriptionBalance {
@@ -21,11 +22,11 @@ interface IRouterForGetSubscriptionBalance {
         address[] consumers;
         bytes32 flags;
     }
+
     function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
 }
 
 interface IDataHub {
-
     struct Article {
         string summary;
         string firstParagraph;
@@ -36,8 +37,8 @@ interface IDataHub {
         uint256 providerId;
     }
 
-    function getProposition(uint256) external view returns(string memory);
-    function getArticles(uint256[] memory) external view returns(string[] memory);
+    function getProposition(uint256) external view returns (string memory);
+    function getArticles(uint256[] memory) external view returns (string[] memory);
 }
 
 contract ReasoningHub is FunctionsClient, ConfirmedOwner {
@@ -63,11 +64,13 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         config.prompt = prompt;
     }
 
-    event OnchainReasoning(uint256 indexed actionId, bytes result, address client, address sender, string[] args, bytes[] bytesArgs);
+    event OnchainReasoning(
+        uint256 indexed actionId, bytes result, address client, address sender, string[] args, bytes[] bytesArgs
+    );
     event Response(bytes32 indexed requestId, bytes response, bytes err);
     event SetSubscription(uint256 subscriptionId, address sender);
 
-    function getSubscriptionBalance() public view returns(uint256) {
+    function getSubscriptionBalance() public view returns (uint256) {
         Types.Config storage config = Storage._config();
         return IRouterForGetSubscriptionBalance(config.router).getSubscription(config.subscriptionId).balance;
     }
@@ -78,7 +81,7 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         uint256[] memory articleIds,
         uint256 sendAmount,
         address linkOwner
-    ) external returns(bytes32) {
+    ) external returns (bytes32) {
         Types.Config storage config = Storage._config();
         uint256 oldBalance = getSubscriptionBalance();
         Types.FunctionArgs memory functionArgs = createFunctionArgs(proposionId, articleIds, config);
@@ -87,27 +90,18 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         req.addSecretsReference(encryptedSecretsUrls);
         req.setArgs(functionArgs.args); // args[0]: prompt, args[1]: proposion
         req.setBytesArgs(functionArgs.bytesArgs);
-        
-        bytes32 requestId = _sendRequest(
-            req.encodeCBOR(),
-            config.subscriptionId,
-            config.gasLimit,
-            config.donID
-        );
-        
+
+        bytes32 requestId = _sendRequest(req.encodeCBOR(), config.subscriptionId, config.gasLimit, config.donID);
+
         Storage._stack(requestId).clientAddress = msg.sender;
         Storage._stack(requestId).sender = linkOwner;
         Storage._stack(requestId).oldBalance = oldBalance;
-        
+
         depositLink(linkOwner, sendAmount);
         return requestId;
     }
 
-    function fulfillRequest(
-        bytes32 requestId,
-        bytes memory response,
-        bytes memory err
-    ) internal override {
+    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
         Types.Promise memory _promise = Storage._stack(requestId);
         uint256 payedLink = Storage._linkDeposit()[_promise.sender];
         uint256 newBalance = getSubscriptionBalance();
@@ -120,7 +114,11 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         emit Response(requestId, response, err);
     }
 
-    function createFunctionArgs(uint256 proposionId, uint256[] memory articleIds, Types.Config storage config) internal view returns(Types.FunctionArgs memory functionArgs) {
+    function createFunctionArgs(uint256 proposionId, uint256[] memory articleIds, Types.Config storage config)
+        internal
+        view
+        returns (Types.FunctionArgs memory functionArgs)
+    {
         string memory proposion = IDataHub(config.dataHub).getProposition(proposionId);
         bytes memory articles = abi.encode(IDataHub(config.dataHub).getArticles(articleIds));
         string memory prompt = config.prompt;
@@ -140,7 +138,7 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         Types.Config storage config = Storage._config();
         IERC677(config.link).transferAndCall(config.router, amount, abi.encode(config.subscriptionId));
         uint256 depositBalance = Storage._linkDeposit()[sender];
-        if(depositBalance > amount) {
+        if (depositBalance > amount) {
             IERC20(config.link).transfer(sender, depositBalance - amount);
         }
         Storage._linkDeposit()[sender] -= amount;
@@ -184,7 +182,7 @@ library Storage {
     uint8 constant LINK_DEPOSIT_SLOT = 4;
     uint8 constant CONFIG_SLOT = 5;
 
-    function _action(uint256 id) internal pure returns(Types.Action storage _s) {
+    function _action(uint256 id) internal pure returns (Types.Action storage _s) {
         assembly {
             mstore(0, ACTION_SLOT)
             mstore(32, id)
@@ -192,14 +190,14 @@ library Storage {
         }
     }
 
-    function _subscription() internal pure returns(mapping(address => uint64) storage _s) {
+    function _subscription() internal pure returns (mapping(address => uint64) storage _s) {
         assembly {
             mstore(0, SUBSCRIPTION_SLOT)
             _s.slot := keccak256(0, 32)
         }
     }
 
-    function _stack(bytes32 requestId) internal pure returns(Types.Promise storage _s) {
+    function _stack(bytes32 requestId) internal pure returns (Types.Promise storage _s) {
         assembly {
             mstore(0, STACK_SLOT)
             mstore(32, requestId)
@@ -207,14 +205,14 @@ library Storage {
         }
     }
 
-    function _linkDeposit() internal pure returns(mapping(address => uint256) storage _s) {
+    function _linkDeposit() internal pure returns (mapping(address => uint256) storage _s) {
         assembly {
             mstore(0, LINK_DEPOSIT_SLOT)
             _s.slot := keccak256(0, 32)
         }
     }
 
-    function _config() internal pure returns(Types.Config storage _s) {
+    function _config() internal pure returns (Types.Config storage _s) {
         assembly {
             mstore(0, CONFIG_SLOT)
             _s.slot := keccak256(0, 32)
