@@ -106,6 +106,10 @@ contract ReasoningHub is FunctionsClient, ConfirmedOwner {
         uint256 payedLink = Storage._linkDeposit()[_promise.sender];
         uint256 newBalance = getSubscriptionBalance();
         uint256 usedLink = _promise.oldBalance - newBalance;
+        //TODO: New Idea!!!
+        //executeの際に、定数ETHをステークしてもらう。
+        //LLMは、全く無関係なニュースを受け取った場合に、特別な値を返却する
+        //その場合は、全く無関係なニュースを提供し、結果を撹乱しようとした罰則として、ステーク料を没収する!!!と
         //callback-----
         // IReasoning(_promise.clientAddress).reasoningCallback(requestId, response, _promise.sender); TODO how to get result
         //-------------

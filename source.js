@@ -1,7 +1,7 @@
 const ethers = await import('npm:ethers@5.7.0');
 const Anthropic = await import('npm:@anthropic-ai/sdk');
 const decoder = new ethers.utils.AbiCoder();
-const proposion = decoder.decode(['string'], bytesArgs[1])[0];
+const proposion = args[1];
 let articles = decoder.decode(['string[]'],bytesArgs[0])[0];
 articles = articles.map((post) => `- ${post}\n`).join('\n');
 const prompt = args[0];
